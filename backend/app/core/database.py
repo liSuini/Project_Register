@@ -9,6 +9,8 @@ _SessionLocal = None
 def init_engine(db_url: str) -> None:
     """按需初始化引擎并建表（幂等）。"""
     global _engine, _SessionLocal
+    import app.models.entities  # noqa: F401 确保模型注册到 Base.metadata
+
     _engine = create_engine(db_url, connect_args={"check_same_thread": False})
     _SessionLocal = sessionmaker(bind=_engine)
     Base.metadata.create_all(_engine)
