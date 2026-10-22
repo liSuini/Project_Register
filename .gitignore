@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Vue
+node_modules/
+dist/
+.vite/
+*.local
+
+# 环境与密钥
+.env
+.env.*
+*.db
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 临时与草稿
+.temp/
+.scratch/
+*.tmp
