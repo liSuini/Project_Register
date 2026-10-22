@@ -4,6 +4,7 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
+import app.models.entities  # noqa: E402,F401 确保模型在 Base.metadata 注册（任何测试先跑都建全表）
 import pytest
 
 
