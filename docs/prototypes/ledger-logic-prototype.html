@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>项目台账 · 逻辑原型（一次性验证用）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.6 "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #303133; padding: 12px; }
+  h1 { font-size: 18px; color: #1f4e9c; }
+  .banner { background: #fff8e6; border: 1px solid #f0d060; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin: 8px 0; }
+  .layout { display: flex; gap: 12px; margin-top: 8px; }
+  .col-left { width: 260px; flex-shrink: 0; }
+  .col-main { flex: 1; min-width: 0; }
+  .card { background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+  .card h2 { font-size: 14px; color: #1f4e9c; border-left: 3px solid #1f4e9c; padding-left: 8px; margin-bottom: 8px; }
+  input, select, button { font: inherit; }
+  input, select { border: 1px solid #dcdfe6; border-radius: 4px; padding: 4px 6px; }
+  button { border: 1px solid #1f4e9c; background: #1f4e9c; color: #fff; border-radius: 4px; padding: 3px 10px; cursor: pointer; margin: 1px; }
+  button.ghost { background: #fff; color: #1f4e9c; }
+  button.danger { background: #fff; color: #f56c6c; border-color: #f56c6c; }
+  button.mini { padding: 0 6px; font-size: 12px; }
+  .proj-item { padding: 6px 8px; border: 1px solid #e4e7ed; border-radius: 4px; margin-bottom: 6px; cursor: pointer; }
+  .proj-item.active { border-color: #1f4e9c; background: #ecf2fb; }
+  .proj-item .stage { float: right; font-size: 12px; color: #67c23a; }
+  .proj-item .excluded { color: #c0c4cc; }
+  /* 阶段步进条 */
+  .stepper { display: flex; }
+  .step { flex: 1; text-align: center; padding: 6px 2px; border-bottom: 3px solid #dcdfe6; cursor: pointer; font-size: 13px; position: relative; }
+  .step .idx { display: block; font-size: 11px; color: #909399; }
+  .step.reached { border-bottom-color: #a0c6ff; }
+  .step.current { border-bottom-color: #1f4e9c; font-weight: bold; color: #1f4e9c; background: #ecf2fb; }
+  .step.excluded { border-bottom-style: dashed; color: #c0c4cc; }
+  .step .tag { display: block; font-size: 10px; color: #e6a23c; }
+  /* 树 */
+  .tree-node { margin: 3px 0; }
+  .tree-row { display: flex; align-items: center; gap: 4px; }
+  .tree-row .nm { cursor: default; }
+  .children { margin-left: 22px; border-left: 1px dashed #dcdfe6; padding-left: 6px; }
+  .anchor-row .nm { font-weight: bold; }
+  .att { font-size: 12px; color: #67c23a; background: #f0f9eb; border: 1px solid #e1f3d8; border-radius: 3px; padding: 0 4px; margin-left: 4px; cursor: pointer; }
+  .excluded-anchor { color: #c0c4cc; }
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { border: 1px solid #ebeef5; padding: 4px 6px; font-size: 13px; text-align: left; }
+  th { background: #f5f7fa; }
+  .tbl-title { font-weight: bold; margin-top: 8px; color: #303133; }
+  .sum { color: #1f4e9c; font-weight: bold; }
+  /* 统计 */
+  .stats { display: flex; gap: 10px; }
+  .stat-card { flex: 1; background: #fff; border: 1px solid #dcdfe6; border-top: 3px solid #1f4e9c; border-radius: 6px; padding: 8px; }
+  .stat-card .k { font-size: 12px; color: #909399; }
+  .stat-card .v { font-size: 20px; font-weight: bold; color: #1f4e9c; }
+  .stat-card .s { font-size: 12px; color: #606266; }
+  /* 事件日志 */
+  #log { font-size: 12px; max-height: 120px; overflow-y: auto; background: #fafafa; border: 1px solid #ebeef5; border-radius: 4px; padding: 6px; }
+  #log .ok { color: #67c23a; } #log .block { color: #f56c6c; font-weight: bold; } #log .info { color: #909399; }
+  /* 状态面板 */
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: #1f4e9c; }
+  #state { font: 12px Consolas, monospace; background: #2d2d2d; color: #dcdcaa; padding: 8px; border-radius: 4px; max-height: 300px; overflow: auto; white-space: pre-wrap; }
+  .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+  label.min { font-size: 12px; color: #606266; }
+</style>
+</head>
+<body>
+<h1>项目台账 · 逻辑原型</h1>
+<div class="banner">一次性原型（THROWAWAY）：仅验证状态模型，内存态无持久化，与生产代码无关。验证点：①任意阶段起步 ②阶段自由流转/回退 ③锚点树+递归子环节 ④非空节点删除保护 ⑤三口径实时聚合。</div>
+
+<div class="card">
+  <b>引导场景</b>（点一下走一步，右侧看效果）：
+  <div class="row" style="margin-top:4px">
+    <button class="ghost" onclick="sc1()">场景1 存量项目从"采购"起步</button>
+    <button class="ghost" onclick="sc2()">场景2 新项目从"商机"起步+推进</button>
+    <button class="ghost" onclick="sc3()">场景3 验收打回实施（回退）</button>
+    <button class="ghost" onclick="sc4()">场景4 树+附件+删除保护</button>
+    <button class="ghost" onclick="sc5()">场景5 加采购/验收看三口径</button>
+    <button class="danger" onclick="reset()" style="margin-left:auto">重置</button>
+  </div>
+</div>
+
+<div class="stats" id="statsBar"></div>
+
+<div class="layout">
+  <div class="col-left">
+    <div class="card">
+      <h2>项目检索</h2>
+      <input id="kw" style="width:100%" placeholder="按项目名称模糊检索…" oninput="renderAll()">
+    </div>
+    <div class="card">
+      <h2>项目列表</h2>
+      <div id="projList"></div>
+      <details class="row" style="margin-top:6px">
+        <summary>＋ 新建项目</summary>
+        <div class="row"><label class="min">名称</label><input id="npName" style="flex:1"></div>
+        <div class="row"><label class="min">客户</label><input id="npCustomer" style="flex:1"></div>
+        <div class="row"><label class="min">签约额(万)</label><input id="npAmount" type="number" style="width:90px" value="0"></div>
+        <div class="row"><label class="min">起始阶段</label><select id="npStage"></select></div>
+        <button onclick="createProject()">创建</button>
+        <span class="excluded-anchor" style="font-size:12px">可选任意阶段</span>
+      </details>
+    </div>
+  </div>
+
+  <div class="col-main">
+    <div id="ledger"></div>
+    <div class="card"><h2>事件日志（含被拒绝的操作）</h2><div id="log"></div></div>
+    <details><summary>查看内存状态（state dump）</summary><pre id="state"></pre></details>
+  </div>
+</div>
+
+<script>
+// ===== 常量 =====
+const STAGES = ['商机','中标','签约','立项','采购','实施','交付','验收','结算'];
+const FAKE_FILES = ['合同扫描件.pdf','中标通知书.pdf','实施方案V2.docx','设备清单.xlsx','验收报告.pdf','到货签收单.jpg','开票记录.xlsx'];
+let seq = 1;
+let state = { projects: [], selectedId: null };
+
+// ===== 工厂 =====
+function newProject(name, customer, amount, initialStage) {
+  const p = {
+    id: seq++, name, customer,
+    contractAmount: +amount || 0, contractNo: '', owner: '',
+    initialStage, currentStage: initialStage,
+    nodes: [], attachments: [], purchases: [], acceptances: [], histories: []
+  };
+  // 阶段锚点：9个顶层节点，随项目自动生成
+  STAGES.forEach(s => p.nodes.push({ id: seq++, parentId: null, stageKey: s, isAnchor: true, name: s }));
+  state.projects.push(p);
+  state.selectedId = p.id;
+  return p;
+}
+const P = () => state.projects.find(x => x.id === state.selectedId);
+
+// ===== 阶段流转（自由/可回退，验证手感） =====
+function changeStage(p, target) {
+  if (!STAGES.includes(target)) return { ok:false, reason:'非法阶段' };
+  const from = p.currentStage;
+  p.currentStage = target;
+  p.histories.push({ from, to: target, at: now() });
+  log(`阶段流转：${from} → ${target}`, 'ok');
+  return { ok:true };
+}
+
+// ===== 环节树 =====
+function addNode(p, parentId, name) {
+  const parent = p.nodes.find(n => n.id === parentId);
+  if (!parent || parent.id == null) { const pid = parentId; if (!p.nodes.some(n => n.id === pid)) return { ok:false, reason:'父节点不存在或跨项目' }; }
+  const n = { id: seq++, parentId, stageKey: null, isAnchor: false, name };
+  p.nodes.push(n);
+  return { ok:true, node:n };
+}
+function renameNode(p, id, name) {
+  const n = p.nodes.find(x => x.id === id);
+  if (!n) return { ok:false, reason:'节点不存在' };
+  if (n.isAnchor) { log(`拒绝：阶段锚点【${n.name}】不可改名`, 'block'); return { ok:false, reason:'锚点不可改名' }; }
+  n.name = name; return { ok:true };
+}
+function deleteNode(p, id) {
+  const n = p.nodes.find(x => x.id === id);
+  if (!n) return { ok:false, reason:'节点不存在' };
+  if (n.isAnchor) { log(`拒绝：阶段锚点【${n.name}】不可删（9锚点=账本骨架）`, 'block'); return { ok:false, reason:'锚点不可删' }; }
+  if (p.nodes.some(x => x.parentId === id)) { log(`拒绝：【${n.name}】下有子环节，先清空子环节`, 'block'); return { ok:false, reason:'非空（子环节）' }; }
+  if (p.attachments.some(a => a.nodeId === id)) { log(`拒绝：【${n.name}】上挂有附件，先删附件`, 'block'); return { ok:false, reason:'非空（附件）' }; }
+  p.nodes = p.nodes.filter(x => x.id !== id);
+  return { ok:true };
+}
+function addAttachment(p, nodeId, name) {
+  const n = p.nodes.find(x => x.id === nodeId);
+  if (!n) return { ok:false, reason:'节点不存在' };
+  const a = { id: seq++, nodeId, name, size: (Math.random()*3000+50|0)+'KB', at: now() };
+  p.attachments.push(a);
+  return { ok:true, att:a };
+}
+function deleteAttachment(p, id) {
+  const a = p.attachments.find(x => x.id === id); if (!a) return {ok:false};
+  p.attachments = p.attachments.filter(x => x.id !== id);
+  return { ok:true };
+}
+// 附件随节点删除联动说明：本原型按"非空禁删"设计，节点删除必须先清附件（业务规则验证点）
+
+// ===== 采购/验收明细 =====
+function addPurchase(p, name, supplier, amount) { p.purchases.push({ id: seq++, name, supplier, amount: +amount||0, date: today() }); }
+function addAcceptance(p, name, received) { p.acceptances.push({ id: seq++, name, received: +received||0, date: today() }); }
+
+// ===== 三口径聚合（只算不存） =====
+function stats() {
+  const fwd = state.projects.filter(p => p.contractAmount > 0);
+  const back = state.projects.filter(p => p.purchases.length);
+  const deliv = state.projects.filter(p => p.acceptances.length);
+  return {
+    forward:  { count: fwd.length,   amount: fwd.reduce((s,p)=>s+p.contractAmount,0) },
+    backward: { count: back.length,  amount: back.reduce((s,p)=>s+p.purchases.reduce((a,x)=>a+x.amount,0),0) },
+    deliver:  { count: deliv.length, amount: deliv.reduce((s,p)=>s+p.acceptances.reduce((a,x)=>a+x.received,0),0) }
+  };
+}
+
+// ===== 渲染 =====
+function renderAll() { renderStats(); renderProjList(); renderLedger(); renderState(); }
+function fmt(n){ return Number(n||0).toLocaleString('zh-CN', {maximumFractionDigits:2}); }
+
+function renderStats() {
+  const s = stats();
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card"><div class="k">前向 · 签约口径</div><div class="v">${fmt(s.forward.amount)} 万</div><div class="s">有签约额项目 ${s.forward.count} 个</div></div>
+    <div class="stat-card"><div class="k">后向 · 采购口径</div><div class="v">${fmt(s.backward.amount)} 万</div><div class="s">有采购单项目 ${s.backward.count} 个</div></div>
+    <div class="stat-card"><div class="k">交付 · 回款口径</div><div class="v">${fmt(s.deliver.amount)} 万</div><div class="s">有验收回款项目 ${s.deliver.count} 个</div></div>`;
+}
+
+function renderProjList() {
+  const kw = document.getElementById('kw').value.trim();
+  const list = state.projects.filter(p => !kw || p.name.includes(kw));
+  document.getElementById('projList').innerHTML =
+    (kw ? `<div class="banner" style="margin:0 0 6px">检索"${kw}"：命中 ${list.length} 个</div>` : '')
+    + (list.length ? '' : '<div class="excluded-anchor">（无项目，点上方"＋新建项目"或跑引导场景）</div>')
+    + list.map(p => `<div class="proj-item ${p.id===state.selectedId?'active':''}" onclick="sel(${p.id})">${p.name}<span class="stage">📍${p.currentStage}</span></div>`).join('');
+}
+function sel(id){ state.selectedId = id; renderAll(); }
+
+function renderLedger() {
+  const p = P();
+  if (!p) { document.getElementById('ledger').innerHTML = '<div class="card">选择或创建一个项目。</div>'; return; }
+  const ini = STAGES.indexOf(p.initialStage), cur = STAGES.indexOf(p.currentStage);
+  const stepper = `<div class="stepper">` + STAGES.map((s,i) => {
+    const cls = ['step'];
+    if (i < ini) cls.push('excluded');
+    if (i === cur) cls.push('current'); else if (i <= cur && i >= ini) cls.push('reached');
+    const tag = i === cur ? '<span class="tag">当前</span>' : (i < ini ? '<span class="tag">存量未纳入</span>' : '');
+    return `<div class="${cls.join(' ')}" onclick="changeStage(P(),'${s}');renderAll()"><span class="idx">${i+1}</span>${s}${tag}</div>`;
+  }).join('') + `</div>
+  <div style="font-size:12px;color:#909399;margin-top:4px">起始阶段：<b>${p.initialStage}</b>｜点击任意阶段即可流转（可推进/回退/跳转）｜阶段与左侧资料树完全独立，回退不动资料</div>`;
+
+  document.getElementById('ledger').innerHTML = `
+  <div class="card">
+    <h2>项目概要</h2>
+    <div class="row"><b style="font-size:15px">${p.name}</b> <span style="color:#909399">客户：${p.customer||'—'}</span> <span style="color:#909399">签约额：<b class="sum">${fmt(p.contractAmount)}</b> 万</span>
+    <span style="margin-left:auto;font-size:12px;color:#c0c4cc">id=${p.id}</span></div>
+    <div style="margin-top:6px">${stepper}</div>
+    <div style="font-size:12px;color:#67c23a;margin-top:4px">阶段流转史：${p.histories.length ? p.histories.map(h=>`${h.from}→${h.to}`).join('，') : '（无）'}</div>
+  </div>
+  <div class="card"><h2>环节树（9阶段锚点 · 子环节任意嵌套 · 附件挂任意层）</h2>${renderTree(p)}</div>
+  <div class="card">
+    <h2>采购 / 验收明细（独立于树的三口径来源）</h2>
+    ${renderDetails(p)}
+  </div>`;
+}
+
+function renderTree(p) {
+  const ini = STAGES.indexOf(p.initialStage);
+  const kids = (pid) => p.nodes.filter(n => n.parentId === pid);
+  const atts = (nid) => p.attachments.filter(a => a.nodeId === nid);
+  function nodeRow(n, depth) {
+    const anchor = n.isAnchor;
+    const excluded = anchor && STAGES.indexOf(n.stageKey) < ini;
+    return `<div class="tree-node">
+      <div class="tree-row ${anchor?'anchor-row':''} ${excluded?'excluded-anchor':''}">
+        <span class="nm">${anchor?'📌 ':'📄 '}${n.name}${excluded?'（存量未纳入）':''}</span>
+        <span class="att" title="点击展开/收起附件" onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">📎${atts(n.id).length}</span>
+        ${atts(n.id).map(a => `<span style="display:none;font-size:11px"> — ${a.name}(${a.size}) <button class="mini danger" onclick="delAtt(${a.id})">删</button></span>`).join('')}
+        <button class="mini ghost" onclick="subNode(${n.id})">+子环节</button>
+        ${anchor?'':`<button class="mini ghost" onclick="renNode(${n.id})">改名</button><button class="mini danger" onclick="delNode(${n.id})">删</button>`}
+      </div>
+      ${kids(n.id).map(c => `<div class="children">${nodeRow(c, depth+1)}</div>`).join('')}
+    </div>`;
+  }
+  return p.nodes.filter(n => n.parentId === null).map(n => nodeRow(n, 0)).join('');
+}
+
+function renderDetails(p) {
+  const pSum = p.purchases.reduce((s,x)=>s+x.amount,0);
+  const aSum = p.acceptances.reduce((s,x)=>s+x.received,0);
+  return `
+  <div class="tbl-title">采购单（金额计入后向口径）<button class="mini ghost" onclick="quickAdd('p')">＋加采购</button></div>
+  <table><tr><th>名称</th><th>供应商</th><th>金额(万)</th><th></th></tr>
+  ${p.purchases.map(x=>`<tr><td>${x.name}</td><td>${x.supplier}</td><td>${fmt(x.amount)}</td><td><button class="mini danger" onclick="delRow('p',${x.id})">删</button></td></tr>`).join('') || '<tr><td colspan=4 style="color:#c0c4cc">（空）</td></tr>'}
+  </table><div style="text-align:right;font-size:12px">采购额合计（=Σ明细，只算不存）：<b class="sum">${fmt(pSum)}</b> 万</div>
+  <div class="tbl-title">验收记录（回款计入交付口径）<button class="mini ghost" onclick="quickAdd('a')">＋加验收</button></div>
+  <table><tr><th>名称</th><th>回款金额(万)</th><th></th></tr>
+  ${p.acceptances.map(x=>`<tr><td>${x.name}</td><td>${fmt(x.received)}</td><td><button class="mini danger" onclick="delRow('a',${x.id})">删</button></td></tr>`).join('') || '<tr><td colspan=3 style="color:#c0c4cc">（空）</td></tr>'}
+  </table><div style="text-align:right;font-size:12px">回款额合计：<b class="sum">${fmt(aSum)}</b> 万</div>`;
+}
+
+// ===== 交互动作 =====
+function subNode(id) { const name = prompt('子环节名称（可继续嵌套）'); if (!name) return;
+  const r = addNode(P(), id, name);
+  r.ok ? log(`新增子环节【${name}】`, 'ok') : log('拒绝：'+r.reason, 'block');
+  renderAll(); }
+function renNode(id) { const n = P().nodes.find(x=>x.id===id); const name = prompt('新名称', n.name); if (!name) return;
+  renameNode(P(), id, name) ? void 0 : void 0; renderAll(); }
+function delNode(id) { deleteNode(P(), id) && log(`删除子环节成功`, 'ok'); renderAll(); }
+function delAtt(id) { deleteAttachment(P(), id); log('删除附件', 'ok'); renderAll(); }
+function quickAdd(kind) {
+  if (kind==='p') { const name=prompt('采购名称'); if(!name)return; const sup=prompt('供应商')||''; const amt=prompt('金额(万)')||0; addPurchase(P(),name,sup,amt); log(`新增采购单【${name}】${amt}万`, 'ok'); }
+  else { const name=prompt('验收名称'); if(!name)return; const amt=prompt('回款金额(万)')||0; addAcceptance(P(),name,amt); log(`新增验收记录【${name}】回款${amt}万`, 'ok'); }
+  renderAll(); }
+function delRow(kind, id) { const p=P(); if(kind==='p'){p.purchases=p.purchases.filter(x=>x.id!==id);log('删除采购单','ok');} else {p.acceptances=p.acceptances.filter(x=>x.id!==id);log('删除验收记录','ok');} renderAll(); }
+function createProject() {
+  const name = document.getElementById('npName').value.trim();
+  if (!name) { alert('请填项目名称'); return; }
+  const p = newProject(name, document.getElementById('npCustomer').value.trim(),
+    document.getElementById('npAmount').value, document.getElementById('npStage').value);
+  log(`创建项目【${name}】起始阶段=${p.initialStage}，自动生成9个阶段锚点`, 'ok');
+  renderAll();
+}
+
+// ===== 引导场景 =====
+function sc1() {
+  const p = newProject('政务云灾备扩容项目（存量）','省政务服务中心', 860, '采购');
+  log(`场景1 ✔ 存量项目从【采购】起步：起始阶段=当前阶段=采购，商机/中标/签约/立项 标记"存量未纳入"；9锚点已生成`, 'info'); renderAll();
+}
+function sc2() {
+  const p = newProject('卫健行业大模型平台','市卫健委', 1500, '商机');
+  changeStage(p,'中标'); changeStage(p,'签约');
+  log(`场景2 ✔ 新项目从【商机】起步，逐步推进至中标→签约；流转史已留痕`, 'info'); renderAll();
+}
+function sc3() {
+  const p = state.projects.find(x=>x.currentStage==='验收') || (()=>{ const q=newProject('智慧园区一期（存量）','园区管委会', 500, '实施'); changeStage(q,'验收'); return q; })();
+  changeStage(p,'实施');
+  log(`场景3 ✔ 回退：验收→实施（模拟验收打回）。注意：回退只改当前阶段与流转史，环节树与附件原样不动`, 'info'); renderAll();
+}
+function sc4() {
+  const p = state.projects[0] || newProject('示例项目','示例客户', 100, '采购');
+  const anchor = p.nodes.find(n=>n.stageKey==='采购');
+  const r1 = addNode(p, anchor.id, '硬件采购'); const sub = r1.node;
+  const fake = FAKE_FILES[Math.random()*FAKE_FILES.length|0];
+  const att = addAttachment(p, sub.id, fake);
+  // 在子环节下再嵌套
+  addNode(p, sub.id, '二标段');
+  log(`场景4：采购锚点下建【硬件采购】→挂附件【${fake}】→再嵌套【二标段】。现在点【硬件采购】的"删"应被拒绝（非空）`, 'info');
+  // 自验证非空保护
+  const blocked = deleteNode(p, sub.id);
+  log(`场景4 尝试删除【硬件采购】→ ${blocked.ok?'被误放行!':'正确拒绝（'+blocked.reason+'）'}`, blocked.ok?'block':'ok');
+  log(`场景4 ✔ 清空后可删：删附件→删二标段→再删【硬件采购】即可。锚点试试改名/删，同样被拒`, 'info');
+  renderAll();
+}
+function sc5() {
+  const p = state.projects[0]; if (!p) { alert('先跑场景1或2建项目'); return; }
+  addPurchase(p,'防火墙采购','华为',120); addPurchase(p,'交换机采购','新华三',80);
+  addAcceptance(p,'一期初验回款',300);
+  log(`场景5 ✔ 加2笔采购(120+80万)+1笔回款(300万) → 看顶部三口径卡片实时变化；采购额/回款额=Σ明细，不在项目上维护`, 'info');
+  renderAll();
+}
+function reset() { state = { projects: [], selectedId: null }; logClear(); log('重置', 'info'); renderAll(); }
+
+// ===== 日志与状态 =====
+function log(msg, kind) { const d = document.getElementById('log'); d.innerHTML = `<div class="${kind||''}">[${now()}] ${msg}</div>` + d.innerHTML; }
+function logClear(){ document.getElementById('log').innerHTML=''; }
+function renderState() {
+  const p = P();
+  document.getElementById('state').textContent = JSON.stringify({ stats: stats(), selected: p || null, all: state.projects.map(x=>({id:x.id,name:x.name,initial:x.initialStage,current:x.currentStage,nodes:x.nodes.length,atts:x.attachments.length,pur:x.purchases.length,acc:x.acceptances.length})) }, null, 2);
+}
+function now(){ return new Date().toLocaleTimeString('zh-CN'); }
+function today(){ return new Date().toISOString().slice(0,10); }
+
+// ===== 初始化 =====
+document.getElementById('npStage').innerHTML = STAGES.map(s=>`<option>${s}</option>`).join('');
+renderAll();
+</script>
+</body>
+</html>
